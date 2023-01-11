@@ -3,19 +3,6 @@ const path = require('path');
 const fs = require('fs');
 sharp.cache(false);
 
-async function resizeImageOld() {
-  try {
-    await sharp("sammy.png")
-      .resize({
-        width: 150,
-        height: 97
-      })
-      .toFile("sammy.png");
-  } catch (error) {
-    console.log(error);
-  }
-}
-
 async function resizeImage(image) {
   let buffer = await sharp(image)
     .resize({
@@ -48,5 +35,4 @@ function getImages() {
   });
 }
 
-//resizeImage();
 getImages();
