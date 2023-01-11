@@ -1,38 +1,43 @@
-const sharp = require("sharp");
-const path = require('path');
 const fs = require('fs');
-sharp.cache(false);
+const sharp = require('sharp');
 
-async function resizeImage(image) {
-  let buffer = await sharp(image)
-    .resize({
-      fit: sharp.fit.inside,
-      withoutEnlargement: true,
-    }, 167)
-    .toBuffer();
-  return sharp(buffer).toFile(image);
-}
+const folderPath = 'D:\\fotos';
 
 
-function getImages() {
-  //joining path of directory 
-  const directoryPath = path.join(__dirname);
-  //passsing directoryPath and callback function
-  fs.readdir(directoryPath, function (err, files) {
-    //handling error    
-    if (err) {
-      return console.log('Unable to scan directory: ' + err);
+fs.readdir(folderPath, (err, files) => {
+  if (err) {
+    console.error(err);
+    return;
+  }
+
+  files.forEach((file) => {
+    if (file.endsWith('.jpg') || file.endsWith('.png') || file.endsWith('.PNG') || file.endsWith('.JPG')) {
+      const tempFile = `${folderPath}/temp-${file}`;
+      
+      fs.copyFile(`${folderPath}/${file}`, tempFile, (err) => {
+        if (err) {
+          console.error(err);
+        } else {
+          sharp(tempFile)
+            .resize({
+              fit: sharp.fit.inside,
+              withoutEnlargement: true,
+            }, 167)
+            .toFile(`${folderPath}/${file}`, (err, info) => {
+              if (err) {
+                console.error(err);
+              } else {
+                fs.unlink(tempFile, (err) => {
+                  if (err) {
+                    console.error(err);
+                  } else {
+                    console.log(`Successfully resized ${file}`);
+                  }
+                });
+              }
+            });
+        }
+      });
     }
-    //listing all files using forEach
-    files.forEach(function (file) {
-      // Do whatever you want to do with the file
-      const ext = path.extname(file);
- 
-      if (ext === ".png" || ext === ".jpg" || ext === ".PNG" || ext === ".JPG") {
-        resizeImage(file);
-      }      
-    });
   });
-}
-
-getImages();
+});
