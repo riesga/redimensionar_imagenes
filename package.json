@@ -1,6 +1,6 @@
 {
   "name": "redimensionar-imagenes",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Redimensiona imágenes",
   "main": "index.js",
   "scripts": {

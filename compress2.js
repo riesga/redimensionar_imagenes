@@ -92,7 +92,7 @@ fs.readdir(sourceFolder, (err, files) => {
                   sendEmail('Error al subir el archivo', 'Hubo un error al subir el archivo ' + filenew + ' al bucket ' + bucketName + ': ' + s3Err);
                 } else {
                   //console.log(`Archivo ${destination} subido con éxito al bucket ${bucketName}`);
-                  sendEmail('Archivo subido', 'El archivo ' + filenew + ' ha sido subido con éxito al bucket ' + bucketName);
+                  sendEmail(`Archivo enviado a S3: ${filenew}`, 'El archivo ' + filenew + ' ha sido subido con éxito al bucket ' + bucketName);
                   let EventLog = new Intl.DateTimeFormat("es-ES", options).format(new Date()).replace(/\//g, "-");
                   fs.appendFile(logFileName, `${EventLog}: Archivo ${destination} subido con éxito al bucket ${bucketName}` + '\n', (s3Err) => {
                     if (s3Err) throw s3Err;
@@ -156,7 +156,7 @@ fs.readdir(sourceFolder, (err, files) => {
               sendEmail('Error al subir el archivo', 'Hubo un error al subir el archivo ' + filePath + ' al bucket ' + bucketName + ': ' + s3Err);
             } else {
               // escribir el mensaje de error en el archivo de registro
-              sendEmail('Archivo subido', 'El archivo ' + filePath + ' ha sido subido con éxito al bucket ' + bucketName);
+              sendEmail(`Archivo enviado a S3: ${filePath}`, 'El archivo ' + filePath + ' ha sido subido con éxito al bucket ' + bucketName);
               let EventLog = new Intl.DateTimeFormat("es-ES", options).format(new Date()).replace(/\//g, "-");
               fs.appendFile(logFileName, EventLog + ': Archivo ' + filePath + ' subido con éxito al bucket  ' + bucketName + '\n', (err) => {
                 if (err) throw err;
@@ -180,7 +180,7 @@ function sendEmail(subject, message) {
   let transporter = nodemailer.createTransport({
     host: process.env.EMAIL_SERVER,
     port: process.env.EMAIL_PORT_SERVER,
-    secure: process.env.EMAIL_SECURE,
+    secure: false,
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASSWORD
@@ -198,9 +198,8 @@ function sendEmail(subject, message) {
   // enviar correo
   transporter.sendMail(mailOptions, (error, info) => {
     if (error) {
-      console.log('error de correo');
       return console.log(error);
     }
-    console.log('Mensaje enviado: %s', info.messageId);
+    //console.log('Mensaje enviado: %s', info.messageId);
   });
 }
