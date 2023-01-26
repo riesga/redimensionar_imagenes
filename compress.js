@@ -1,12 +1,12 @@
 const fs = require('fs');
-const archiver = require('archiver');
+const archiver = require('');
 
-const sourceFolder = './myfolder';
+const sourceFolder = 'D:\\copias-s3';
 
 fs.readdir(sourceFolder, (err, files) => {
     if (err) throw err;
     for (const file of files) {
-        if (file.endsWith('.bak')) {
+        if (file.endsWith('.pdf')) {
             const filePath = `${sourceFolder}/${file}`;
             const destination = `${filePath.slice(0,-4)}.zip`;
             if(fs.existsSync(destination)) {
