@@ -8,7 +8,7 @@ const nodemailer = require('nodemailer');
 const folder = process.env.LOCAL_FOLDER;
 
 // ruta del ejecutable de WinRAR
-const winrarPath = 'c:\\Program Files\\WinRAR\\winrar';
+const winrarPath = process.env.PATH_WINRAR;
 
 // configurar credenciales de acceso a S3
 AWS.config.update({
@@ -18,7 +18,6 @@ AWS.config.update({
 
 const s3 = new AWS.S3();
 const bucketName = process.env.S3_BUCKET;
-const sourceFolder = process.env.LOCAL_FOLDER;
 
 const options = {
     year: "numeric",
@@ -77,70 +76,114 @@ files.forEach(file => {
             }
         });
     } else {
-        console.log(`${file} ya comprimido, omitiendo`);
         let EventLog = new Intl.DateTimeFormat("es-ES", options).format(new Date()).replace(/\//g, "-");
         fs.appendFile(logFileName, `${EventLog}: ${file} ya comprimido, omitiendo` + '\n', (err) => {
             if (err) throw err;
         });
-        // Verificar si el archivo ya existe en el bucket
-        const filePath = `${compressedFilePath}`;
-        const headParams = {
-            Bucket: bucketName,
-            Key: `${filenew}`,
-        };
-        s3.headObject(headParams, function (err, data) {
-            if (err && err.code === 'NotFound') {
-                // Si el archivo no existe, proceder a subirlo
-                const fileStream = fs.createReadStream(filePath);
-                fileStream.on('error', function (err) {
-                    //console.log('File Error', err);
-                    let EventLog = new Intl.DateTimeFormat("es-ES", options).format(new Date()).replace(/\//g, "-");
-                    fs.appendFile(logFileName, `${EventLog}: Error de archivo: ${err}` + '\n', (err) => {
-                        if (err) throw err;
-                    });
-                });
-                const params = {
-                    Bucket: bucketName,
-                    Key: `${filenew}`,
-                    Body: fileStream
-                };
-                s3.upload(params, function (s3Err, data) {
-                    if (s3Err) {
-                        //console.log('Error al subir el archivo a S3: ', s3Err);
-                        // escribir el mensaje de error en el archivo de registro
-                        let EventLog = new Intl.DateTimeFormat("es-ES", options).format(new Date()).replace(/\//g, "-");
-                        fs.appendFile(logFileName, EventLog + ': Error al subir el archivo ' + filePath + ' al bucket ' + bucketName + ': ' + s3Err + '\n', (s3Err) => {
-                            if (s3Err) throw s3Err;
-                        });
-                        sendEmail('Error al subir el archivo', 'Hubo un error al subir el archivo ' + filenew + ' al bucket ' + bucketName + ': ' + s3Err);
-                    } else {
-                        // escribir el mensaje de error en el archivo de registro
-                        sendEmail(`Archivo enviado a S3: ${filePath}`, 'El archivo ' + filePath + ' ha sido subido con éxito al bucket ' + bucketName);
-                        let EventLog = new Intl.DateTimeFormat("es-ES", options).format(new Date()).replace(/\//g, "-");
-                        fs.appendFile(logFileName, EventLog + ': Archivo ' + filePath + ' subido con éxito al bucket  ' + bucketName + '\n', (err) => {
-                            if (err) throw err;
-                        });
-                    }
-                });
-            } else {
-                // escribir el mensaje de error en el archivo de registro
-                let EventLog = new Intl.DateTimeFormat("es-ES", options).format(new Date()).replace(/\//g, "-");
-                fs.appendFile(logFileName, `${EventLog}: El archivo ${filenew} ya existe en el bucket ${bucketName}, omitiendo` + '\n', (err) => {
-                    if (err) throw err;
-                });
-                //Enviar correo:
-                if (err && err.code != null) {
-                    sendEmail('Error al subir el archivo', 'Hubo un error al subir el archivo ' + filenew + ' al bucket ' + bucketName + ': ' + err);
-                    fs.appendFile(logFileName, `${EventLog}: Error al subir el archivo ${filenew} al bucket ${bucketName}: ` + err + '\n', (err) => {
-                        if (err) throw err;
-                    });
-                }
-            }
-        });
+        // Sincroniza el archivo con el bucket S3
+        SyncS3(filenew);
     }
 });
 
 
+/*  Esta función sincroniza el archivo con S3 y valida si ya se subió, si es así, llama la función CheckFile 
+    para validar la antiguedad del archivo y proceder a eliminarlo si tiene más días de los definidos en la variable OLD_DAYS
+*/
+function SyncS3(fileSync) {
+    const fileToS3 = fileSync;
+    const filePathZip = `${folder}${fileToS3}`;
+    const headParams = {
+        Bucket: bucketName,
+        Key: `${fileToS3}`,
+    };
+    s3.headObject(headParams, function (err, data) {
+        if (err && err.code === 'NotFound') {
+            // Si el archivo no existe, proceder a subirlo
+            const fileStream = fs.createReadStream(filePathZip);
+            fileStream.on('error', function (err) {
+                //console.log('File Error', err);
+                let EventLog = new Intl.DateTimeFormat("es-ES", options).format(new Date()).replace(/\//g, "-");
+                fs.appendFile(logFileName, `${EventLog}: Error de archivo: ${err}` + '\n', (err) => {
+                    if (err) throw err;
+                });
+            });
+            const params = {
+                Bucket: bucketName,
+                Key: `${fileToS3}`,
+                Body: fileStream
+            };
+            s3.upload(params, function (s3Err, data) {
+                if (s3Err) {
+                    //console.log('Error al subir el archivo a S3: ', s3Err);
+                    // escribir el mensaje de error en el archivo de registro
+                    let EventLog = new Intl.DateTimeFormat("es-ES", options).format(new Date()).replace(/\//g, "-");
+                    fs.appendFile(logFileName, EventLog + ': Error al subir el archivo ' + fileToS3 + ' al bucket ' + bucketName + ': ' + s3Err + '\n', (s3Err) => {
+                        if (s3Err) throw s3Err;
+                    });
+                    sendEmail('Error al subir el archivo', 'Hubo un error al subir el archivo ' + fileToS3 + ' al bucket ' + bucketName + ': ' + s3Err);
+                } else {
+                    // escribir el mensaje de error en el archivo de registro
+                    sendEmail(`Archivo enviado a S3: ${fileToS3}`, 'El archivo ' + fileToS3 + ' ha sido subido con éxito al bucket ' + bucketName);
+                    let EventLog = new Intl.DateTimeFormat("es-ES", options).format(new Date()).replace(/\//g, "-");
+                    fs.appendFile(logFileName, EventLog + ': Archivo ' + fileToS3 + ' subido con éxito al bucket  ' + bucketName + '\n', (err) => {
+                        if (err) throw err;
+                    });
+                }
+            });
+        } else {
+            if (err && err.code != null) {
+                sendEmail('Error al subir el archivo', 'Hubo un error al subir el archivo ' + fileToS3 + ' al bucket ' + bucketName + ': ' + err);
+                let EventLog = new Intl.DateTimeFormat("es-ES", options).format(new Date()).replace(/\//g, "-");
+                fs.appendFile(logFileName, `${EventLog}: Error al subir el archivo ${fileToS3} al bucket ${bucketName}: ` + err + '\n', (err) => {
+                    if (err) throw err;
+                });
+            } else {
+                // escribir el mensaje de error en el archivo de registro
+                let EventLog = new Intl.DateTimeFormat("es-ES", options).format(new Date()).replace(/\//g, "-");
+                fs.appendFile(logFileName, `${EventLog}: El archivo ${fileToS3} ya existe en el bucket ${bucketName}, omitiendo` + '\n', (err) => {
+                    if (err) throw err;
+                });
+                CheckFile(fileToS3);
+            }
+        }
+    });
+}
+
+//Con este proceso se van limpiando los archivos comprimidos con X días de antiguedad
+function CheckFile(fileCh) {
+
+    const fileOri = fileCh;
+    const fileZip = fileCh.slice(0, -4) + process.env.EXT_FILES_SEARCH;
+    const files = [fileOri, fileZip];
+    
+    files.forEach(file => {        
+        const filePathCheck = `${folder}${file}`;
+        fs.stat(filePathCheck, function (err, stats) {
+            if (err) {
+                let EventLog = new Intl.DateTimeFormat("es-ES", options).format(new Date()).replace(/\//g, "-");
+                fs.appendFile(logFileName, `${EventLog}: ${err}` + '\n', (err) => {
+                    if (err) throw err;
+                });
+            } else {
+                var mtime = new Date(stats.mtime);
+                var currentDate = new Date();
+                var difference = currentDate - mtime;
+                var daysDifference = difference / 1000 / 60 / 60 / 24;
+                if (daysDifference > process.env.OLD_DAYS) {
+                    fs.unlink(filePathCheck, (err) => {
+                        if (err) throw err;
+                        let EventLog = new Intl.DateTimeFormat("es-ES", options).format(new Date()).replace(/\//g, "-");
+                        fs.appendFile(logFileName, `${EventLog}: ${filePathCheck} eliminado por antiguedad.` + '\n', (err) => {
+                            if (err) throw err;
+                        });
+                    });
+                }
+            }
+        });
+    });
+}
+
+//Función que envía la notificación por correo electrónico
 function sendEmail(subject, message) {
     // configurar transporte de correo
     let transporter = nodemailer.createTransport({
