@@ -3,6 +3,7 @@ const fs = require('fs');
 const archiver = require('archiver');
 const AWS = require('aws-sdk');
 const nodemailer = require('nodemailer');
+const AdmZip = require('adm-zip');
 
 // configurar credenciales de acceso a S3
 AWS.config.update({
